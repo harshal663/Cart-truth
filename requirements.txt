@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+pydantic
+opencv-python
+onnxruntime
+pillow
+requests
+jinja2
+numpy
+cryptography

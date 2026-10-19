@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>CartTruth Scanner</title>
+<script src="https://unpkg.com/html5-qrcode@2.3.8"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+         background:#0b0f17; color:#e6ebf5; }
+  header { padding:16px 18px; font-size:20px; font-weight:700; border-bottom:1px solid #222c40; }
+  header span { color:#5b8cff; }
+  main { padding:16px; max-width:480px; margin:0 auto; }
+
+  #reader { width:100%; border-radius:12px; overflow:hidden; background:#000; min-height:120px; }
+  #status { margin-top:14px; padding:14px; border-radius:10px; background:#141b29;
+            text-align:center; font-size:17px; }
+  #status.ok  { background:#12382b; color:#7dffc4; }
+  #status.bad { background:#3a1620; color:#ff9aa6; }
+  #warn { display:none; margin-top:12px; padding:12px; background:#3a2d10; color:#ffd98a;
+          border-radius:10px; font-size:14px; }
+
+  .divider { display:flex; align-items:center; gap:10px; margin:22px 0 12px; color:#8794ad;
+             font-size:12px; letter-spacing:1.5px; text-transform:uppercase; }
+  .divider::before, .divider::after { content:""; flex:1; height:1px; background:#222c40; }
+
+  .manual { display:flex; gap:8px; }
+  .manual input { flex:1; min-width:0; padding:14px; border-radius:10px; border:1px solid #222c40;
+                  background:#141b29; color:#fff; font-size:16px; letter-spacing:.5px; }
+  .manual input:focus { outline:none; border-color:#5b8cff; }
+  .manual button { padding:0 22px; border:0; border-radius:10px; background:#5b8cff;
+                   color:#fff; font-size:16px; font-weight:600; }
+  .manual button:active { opacity:.8; }
+
+  /* small, faded shortcut buttons */
+  .mini { display:flex; justify-content:center; gap:10px; margin-top:28px; opacity:.35; }
+  .mini button { width:38px; height:38px; padding:0; border:0; border-radius:8px;
+                 background:#1b2436; color:#8794ad; font-size:14px; }
+</style>
+</head>
+<body>
+<header>Cart<span>Truth</span> Scanner</header>
+
+<main>
+  <div id="reader"></div>
+  <div id="status">Point the camera at a barcode / QR code</div>
+  <div id="warn"></div>
+
+  <div class="divider">or enter barcode</div>
+  <div class="manual">
+    <input id="manual" type="text" placeholder="e.g. APPLE09876L"
+           autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false"
+           enterkeyhint="send">
+    <button id="sendBtn" type="button">Add</button>
+  </div>
+
+  <div class="mini">
+    <button type="button" onclick="send('APPLE')">1</button>
+    <button type="button" onclick="send('BANANA')">2</button>
+    <button type="button" onclick="send('ORANGE')">3</button>
+  </div>
+</main>
+
+<script>
+const statusEl = document.getElementById('status');
+const inputEl  = document.getElementById('manual');
+let lastCode = '', lastAt = 0;
+
+async function send(code) {
+  code = (code || '').trim();
+  if (!code) return false;
+  try {
+    const r = await fetch('/api/scan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ barcode: code })
+    });
+    const d = await r.json();
+    const ok = d.status === 'ADDED';
+    statusEl.textContent = (ok ? '\u2705 ' : '\u26A0\uFE0F ') + d.message;
+    statusEl.className = ok ? 'ok' : 'bad';
+    if (navigator.vibrate) navigator.vibrate(ok ? 80 : [200, 100, 200]);
+    return true;
+  } catch (e) {
+    statusEl.textContent = 'Cannot reach the kiosk server';
+    statusEl.className = 'bad';
+    return false;
+  }
+}
+
+// Manual entry: Add button or the keyboard's Enter / Go key
+async function sendManual() {
+  const code = inputEl.value.trim();
+  if (!code) { inputEl.focus(); return; }
+  if (await send(code)) inputEl.value = '';
+}
+document.getElementById('sendBtn').addEventListener('click', sendManual);
+inputEl.addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); sendManual(); }
+});
+
+// Camera scan, debounced so one barcode is not sent repeatedly
+function onScan(text) {
+  const now = Date.now();
+  if (text === lastCode && now - lastAt < 2500) return;
+  lastCode = text; lastAt = now;
+  send(text);
+}
+
+function warn(msg) {
+  const w = document.getElementById('warn');
+  w.style.display = 'block';
+  w.textContent = msg;
+}
+
+if (!window.isSecureContext) warn('Camera unavailable on this connection.');
+
+try {
+  const F = Html5QrcodeSupportedFormats;
+  const scanner = new Html5Qrcode('reader', {
+    formatsToSupport: [F.QR_CODE, F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E, F.CODE_128, F.CODE_39],
+    experimentalFeatures: { useBarCodeDetectorIfSupported: true }
+  });
+  scanner.start({ facingMode: 'environment' },
+                { fps: 10, qrbox: { width: 260, height: 160 } },
+                onScan, () => {})
+         .catch(err => warn('Camera could not start.'));
+} catch (e) {
+  warn('Scanner unavailable.');
+}
+</script>
+</body>
+</html>
