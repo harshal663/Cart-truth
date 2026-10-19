@@ -10,7 +10,7 @@ CartTruth is an edge-optimized, event-driven computer vision engine designed to 
 
 Instead of treating shoppers like suspects, CartTruth utilizes a **Nudge Ladder**—silently reconciling physical shelf interactions (picks/put-backs) with digital mobile scans, and issuing friction-free nudges before escalating to staff alerts.
 
-Developed by Harshal Santosh Dawkhar (Agentic & ML Engineer) for the Everseen Checkout Anywhere Loss Prevention track.
+Developed by Harshal(me) and my team-mates parag, aditi, and bhakti for the Everseen Checkout Anywhere Loss Prevention track.
 
 ---
 
